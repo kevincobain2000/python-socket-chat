@@ -80,7 +80,7 @@ class Server:
                 if possible_nick.lower() != "server" and possible_nick != "":
                     client.set_nick(possible_nick)
                 else:
-                    self.__server_message()("Nickname already taken", client)
+                    self.__server_message("Nickname already taken", client)
 
         self.__server_message(self.commands, client);
         self.clients.append(client)
