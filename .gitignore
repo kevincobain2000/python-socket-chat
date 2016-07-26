@@ -1,0 +1,7 @@
+*.pyc
+*.ini
+.vagrant
+vagrant
+.DS_Store
+build
+.bundle
