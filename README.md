@@ -1,5 +1,15 @@
+# Demo
+
+https://www.youtube.com/watch?v=Vj3tT0oUe0s
+
 # Local Env Setup (vagrant)
 
+* Vagrant
+    * http://www.vagrantup.com/downloads.html
+* VirtualBox
+    * https://www.virtualbox.org/wiki/Downloads
+* Ansible
+    * http://docs.ansible.com/ansible/
 
 ```
 vagrant box add precise64 http://files.vagrantup.com/precise64.box
