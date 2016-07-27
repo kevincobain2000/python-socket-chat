@@ -196,6 +196,8 @@ class Server:
             self.__send_msg_to_room("joined room", client)
 
     def __leave_room(self, room, client):
+        if client.get_nick().lower() not in self.rooms[room]:
+            return
         self.rooms[room].remove(client.get_nick().lower())
         self.__send_msg_to_room("left room", client)
 
