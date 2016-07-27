@@ -14,11 +14,18 @@ class Server:
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        for room in ['tutorial', 'work', 'study', 'python', 'slack', 'javascript']:
+        for room in ['tutorial',
+                        'work',
+                        'study',
+                        'python',
+                        'slack',
+                        'javascript'
+                    ]:
             self.rooms[room] = []
 
         self.commands = ("Commands available:\r\n"
             + "/users                - List all users\r\n"
+            + "/users <room>         - List all users in a room\r\n"
             + "/rooms                - List all rooms\r\n"
             + "/join <room>          - Join <room>\r\n"
             + "/private <nick> <msg> - Send private message to <nick>\r\n"
@@ -69,9 +76,9 @@ class Server:
             if len(possible_nick) > 10:
                 possible_nick = possible_nick[:10]
             nickname_exists = False
-            for u in self.clients:
-                if u.get_nick() is not None:
-                    if u.get_nick().lower() == possible_nick.lower():
+            for user in self.clients:
+                if user.get_nick() is not None:
+                    if user.get_nick().lower() == possible_nick.lower():
                         nickname_exists = True
                         self.__server_message("This nickname is taken", client)
                         break
@@ -82,11 +89,12 @@ class Server:
                 else:
                     self.__server_message("Nickname already taken", client)
 
-        self.__server_message(self.commands, client);
         self.clients.append(client)
-
+        self.__server_message(self.commands, client);
         self.__server_message(client.get_nick() + " has joined the chat")
+        self.__command_handle(generator, client)
 
+    def __command_handle(self, generator, client):
         while True:
             try:
                 block = next(generator)
@@ -94,16 +102,21 @@ class Server:
                 self.__client_disconnect(client)
                 break
 
-            client.send("=> " + block);
-
-            if block.startswith("/"):
+            client.send("\r\n=> " + block);
+            if not block.startswith("/"):
+                self.__send_msg_to_room(block, client)
+            else:
                 cmd = block.split(" ")
                 command = cmd[0].lower()
                 if command == "/exit":
                     self.__client_disconnect(client)
                     break
                 elif command == "/users":
-                    self.__list_users(client)
+                    if len(cmd) > 1:
+                        room = cmd[1]
+                        self.__list_users_in_room(client)
+                    else:
+                        self.__list_users(client)
                 elif command == "/rooms":
                     self.__list_rooms(client)
                 elif command == "/join":
@@ -121,29 +134,34 @@ class Server:
                         msg = block[block.index(to_nickname):]
                         self.__send_msg_to_user(to_nickname, client, msg)
                     else:
-                        client.send("Parameters missing for private message /private <user> <msg>")
+                        client.send("Parameters missing for private message /private <nickname> <msg>")
                 elif command == "/clear":
-                    client.send("\033[2J")
+                    self.__server_message("\033[2J", client)
                 elif command == "/help":
-                    client.send(self.commands)
+                    self.__server_message(self.commands, client)
                 else:
                     self.__server_message("Unknown command, try typing /help", client)
-            else:
-                self.__send_msg_to_room(block, client)
 
     def __list_rooms(self, client):
         for room in self.rooms:
             self.__server_message(room + "(" + str(len(self.rooms[room])) + ")", client)
 
+    # list users with the current room
     def  __list_users(self, client):
         for c in self.clients:
-            self.__server_message(str(c.get_nick()) + str(c.get_room()), client)
+            self.__server_message("nickanme: " + str(c.get_nick()) + " room: " + str(c.get_room()), client)
+
+    def __list_users_in_room(self, client):
+        if client.get_room():
+            for client_name in self.rooms[client.get_room()]:
+                self.__server_message("nickname: " + client_name, client)
 
     def __send_msg_to_user(self, to_nickname, client, msg):
         for user in self.clients:
             if user.get_nick().lower() == to_nickname.lower():
-                message = client.get_nick() + "->" + user.get_nick() + "): " + msg
+                message = client.get_nick() + " -> " + user.get_nick() + ": " + msg
                 self.__server_message(message, user)
+                self.__server_message(message, client)
                 break
             else:
                 self.__server_message("User Doesn't exist", client)
@@ -152,13 +170,13 @@ class Server:
         if not self.__validate_msg(msg):
             return
         if not client.get_room():
-            self.__server_message("You cannot send a message. Please Join a room first.", client)
+            self.__server_message("Please join a room first.", client)
             self.__server_message("You can list rooms via /rooms", client)
             self.__server_message("To join a room type /join <room>", client)
             return
         for user in self.clients:
             if user.get_nick().lower() in self.rooms[client.get_room()]:
-                self.__server_message("(" + client.get_room() + ")" + client.get_nick() + " says: " + msg, user)
+                self.__server_message("(" + client.get_room() + ") " + client.get_nick() + ": " + msg, user)
 
     def __validate_msg(self, msg):
         return msg != ""
@@ -171,18 +189,11 @@ class Server:
         else:
             client.set_room(room)
             self.rooms[room].append(client.get_nick().lower())
-
-            room_length = str(len(self.rooms[room]))
-            self.__server_message(client.get_nick() + " Joined Room: " + room + " (" + room_length + ")")
-            self.__server_message("List of Users in this room :" + room, client)
-            for client_name in self.rooms[room]:
-                self.__server_message(client_name, client)
+            self.__send_msg_to_room("joined room", client)
 
     def __leave_room(self, room, client):
         self.rooms[room].remove(client.get_nick().lower())
-        for u in self.clients:
-            if u.get_nick().lower() in self.rooms[room]:
-                self.__server_message(client.get_nick() + " left the room: " + room, u)
+        self.__send_msg_to_room("left room", client)
 
     def __server_message(self, msg, user=None):
         if not user:
@@ -196,9 +207,9 @@ class Server:
 
     def __client_disconnect(self, client):
         client.get_session().close()
-        for c in self.clients:
-            if c.get_nick().lower() == client.get_nick().lower():
-                self.clients.remove(c)
+        for user in self.clients:
+            if user.get_nick().lower() == client.get_nick().lower():
+                self.clients.remove(user)
 
         if client.get_room():
             self.rooms[client.get_room()].remove(client.get_nick().lower())
