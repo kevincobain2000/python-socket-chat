@@ -21,6 +21,8 @@ vagrant ssh
 //password: vagrant
 ```
 
+From Terminal (Mac/vagrant with same subnet)
+
 ```
 $ telnet 192.168.36.12 8181
 ```
@@ -38,8 +40,9 @@ $ telnet 192.168.36.12 8181
 $ python server.py
 ```
 
-Clients
+From Terminal
 
 ```
 $ telnet 127.0.0.1 8181
+$ telnet 127.0.0.1 <port>
 ```
