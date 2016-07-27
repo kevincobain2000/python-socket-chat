@@ -114,7 +114,7 @@ class Server:
                 elif command == "/users":
                     if len(cmd) > 1:
                         room = cmd[1]
-                        self.__list_users_in_room(client)
+                        self.__list_users_in_room(room, client)
                     else:
                         self.__list_users(client)
                 elif command == "/rooms":
@@ -122,10 +122,10 @@ class Server:
                 elif command == "/join":
                     if len(cmd) > 1:
                         prev_room = client.get_room()
-                        room = cmd[1]
-                        if prev_room:
+                        new_room = cmd[1]
+                        if prev_room and prev_room != new_room:
                             self.__leave_room(prev_room, client)
-                        self.__join_room(room, client)
+                        self.__join_room(new_room, client)
                     else:
                         client.send("Room name missing /join <room>")
                 elif command == "/private":
@@ -148,13 +148,17 @@ class Server:
 
     # list users with the current room
     def  __list_users(self, client):
-        for c in self.clients:
-            self.__server_message("nickanme: " + str(c.get_nick()) + " room: " + str(c.get_room()), client)
+        for user in self.clients:
+            self.__server_message("nickanme: " + str(user.get_nick()) + " (" + str(user.get_room()) + ")", client)
+        self.__server_message("Total: " + str(len(self.clients)), client)
 
-    def __list_users_in_room(self, client):
-        if client.get_room():
-            for client_name in self.rooms[client.get_room()]:
-                self.__server_message("nickname: " + client_name, client)
+    def __list_users_in_room(self, room, client):
+        if room not in self.rooms:
+            self.__server_message("room doesn't exist: " + room, client)
+            return
+        for client_name in self.rooms[room]:
+            self.__server_message("nickname: " + client_name, client)
+        self.__server_message("Total: " + str(len(self.rooms[room])), client)
 
     def __send_msg_to_user(self, to_nickname, client, msg):
         for user in self.clients:
