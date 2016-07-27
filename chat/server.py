@@ -5,6 +5,7 @@ import socket
 import os
 import thread
 from user import User
+from colorama import Fore, Style
 
 class Server:
     def __init__(self, port):
@@ -38,9 +39,40 @@ class Server:
         self.server.listen(5)
         print("Running Server on PORT " + str(self.port));
         while True:
-            session = self.server.accept()
-            UnloggedUser = User(session)
-            thread.start_new_thread(self.__client_handle, (UnloggedUser,))
+            self.__start_session()
+
+    def __start_session(self):
+        session = self.server.accept()
+        user = User(session)
+        thread.start_new_thread(self.__client_handle, (user,))
+
+    def __client_handle(self, client):
+        generator = self.__read_data(client)
+
+        while client.get_nick() is None:
+            self.__server_message("Welcome to the XYZ chat server", client)
+            client.send_raw("Your Nickname: ")
+            possible_nick = next(generator)
+            if len(possible_nick) > 10:
+                possible_nick = possible_nick[:10]
+            nickname_exists = False
+            for user in self.clients:
+                if user.get_nick() is not None:
+                    if user.get_nick().lower() == possible_nick.lower():
+                        nickname_exists = True
+                        self.__server_message("This nickname is taken", client)
+                        break
+
+            if not nickname_exists:
+                if possible_nick.lower() != "server" and possible_nick != "":
+                    client.set_nick(possible_nick)
+                else:
+                    self.__server_message("Nickname already taken", client)
+
+        self.clients.append(client)
+        self.__server_message(self.commands, client);
+        self.__server_message(client.get_nick() + " has joined the chat")
+        self.__command_handle(generator, client)
 
     def __read_data(self, client):
         buff = ""
@@ -66,33 +98,6 @@ class Server:
                         buff = line
             else:
                 buff += data
-
-    def __client_handle(self, client):
-        generator = self.__read_data(client)
-        while client.get_nick() is None:
-            self.__server_message("Welcome to the XYZ chat server", client)
-            client.send_raw("Your Nickname: ")
-            possible_nick = next(generator)
-            if len(possible_nick) > 10:
-                possible_nick = possible_nick[:10]
-            nickname_exists = False
-            for user in self.clients:
-                if user.get_nick() is not None:
-                    if user.get_nick().lower() == possible_nick.lower():
-                        nickname_exists = True
-                        self.__server_message("This nickname is taken", client)
-                        break
-
-            if not nickname_exists:
-                if possible_nick.lower() != "server" and possible_nick != "":
-                    client.set_nick(possible_nick)
-                else:
-                    self.__server_message("Nickname already taken", client)
-
-        self.clients.append(client)
-        self.__server_message(self.commands, client);
-        self.__server_message(client.get_nick() + " has joined the chat")
-        self.__command_handle(generator, client)
 
     def __command_handle(self, generator, client):
         while True:
@@ -127,14 +132,14 @@ class Server:
                             self.__leave_room(prev_room, client)
                         self.__join_room(new_room, client)
                     else:
-                        client.send("Room name missing /join <room>")
+                        self.__server_message("Room name missing /join <room>", client)
                 elif command == "/private":
                     if len(cmd) > 2:
                         to_nickname = cmd[1]
                         msg = block[block.index(to_nickname):]
                         self.__send_msg_to_user(to_nickname, client, msg)
                     else:
-                        client.send("Parameters missing for private message /private <nickname> <msg>")
+                        self.__server_message("Parameters missing for private message /private <nickname> <msg>", client)
                 elif command == "/clear":
                     self.__server_message("\033[2J", client)
                 elif command == "/help":
@@ -146,7 +151,7 @@ class Server:
         for room in self.rooms:
             self.__server_message(room + "(" + str(len(self.rooms[room])) + ")", client)
 
-    # list users with the current room
+    # list users all users
     def  __list_users(self, client):
         for user in self.clients:
             self.__server_message("nickanme: " + str(user.get_nick()) + " (" + str(user.get_room()) + ")", client)
@@ -161,6 +166,8 @@ class Server:
         self.__server_message("Total: " + str(len(self.rooms[room])), client)
 
     def __send_msg_to_user(self, to_nickname, client, msg):
+        if not self.__validate_msg(msg):
+            return
         for user in self.clients:
             if user.get_nick().lower() == to_nickname.lower():
                 message = client.get_nick() + " -> " + user.get_nick() + ": " + msg
@@ -196,9 +203,8 @@ class Server:
             self.__send_msg_to_room("joined room", client)
 
     def __leave_room(self, room, client):
-        if client.get_nick().lower() not in self.rooms[room]:
-            return
-        self.rooms[room].remove(client.get_nick().lower())
+        if client.get_nick().lower() in self.rooms[room]:
+            self.rooms[room].remove(client.get_nick().lower())
         self.__send_msg_to_room("left room", client)
 
     def __server_message(self, msg, user=None):
@@ -209,7 +215,7 @@ class Server:
                 except:
                     self.__client_disconnect(client)
         else:
-            user.send("<= " +  msg)
+            user.send(Fore.GREEN + "<= " +  msg + Style.RESET_ALL)
 
     def __client_disconnect(self, client):
         client.get_session().close()
