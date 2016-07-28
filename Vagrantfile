@@ -31,8 +31,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.synced_folder "vagrant/", "/home/vagrant", create: true
 
   config.vm.provision :shell, inline: "echo Good job, now enjoy your new vbox: http://192.168.36.12"
-  # config.vm.provision :shell, inline: "echo Installing pip Requirements"
-  # config.vm.provision :shell, inline: "sudo pip install -r /vagrant/requirements.txt"
+  config.vm.provision :shell, inline: "echo Installing pip Requirements"
+  config.vm.provision :shell, inline: "sudo pip install -r /vagrant/requirements.txt"
   config.vm.provision :shell, inline: "echo Starting Server"
   config.vm.provision :shell, inline: "python /vagrant/server.py &"
   config.vm.provision :shell, inline: "echo telnet 192.168.36.12 8181"
