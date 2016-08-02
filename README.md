@@ -1,6 +1,7 @@
 # Demo
 
-https://www.youtube.com/watch?v=Vj3tT0oUe0s
+[![Youtube Demo](youtube.png)](https://www.youtube.com/watch?v=Vj3tT0oUe0s)
+
 
 # Local Env Setup (vagrant)
 
